@@ -12,7 +12,6 @@
 #include <sstream>
 #include <fstream>
 #include <pthread.h>
-//#include <boost/thread.hpp>
 
 #define MAXLINE 1024 
 
@@ -24,7 +23,6 @@ void* node_router(void *threadarg);
 struct thread_data {
    int  thread_port;
    char* origin_port;
-   int origin_sockfd;
 };
 
 
@@ -57,13 +55,13 @@ main(int argc, char **argv)
    pthread_t threads[j];
    struct thread_data td[j];
    int rc;
-   int t;
+   long int t;
 
-   for( t = 0; t <= j; t++ ) {
+   for( t = 0; t < i; t++ ) 
+   {
       std::cout <<"main() : creating thread, " << t << std::endl;
       td[t].thread_port = port[t];
       td[t].origin_port = argv[1];
-      td[t].origin_sockfd = sockfd;
       rc = pthread_create(&threads[t], NULL, node_router, (void *)&td[t]);
       if (rc)
       {
@@ -114,6 +112,7 @@ int findPort(std::string neighbour)
     }
     return atoi(port.c_str());
 }
+
 void router_setup(int port, int& sockfd)
 {
     struct sockaddr_in addr;
@@ -143,7 +142,7 @@ void *node_router(void *threadarg) {
     struct thread_data *port_data;
     port_data = (struct thread_data *) threadarg;
 
-    int sockfd = port_data->origin_sockfd;
+    int sockfd = 3;
     char buffer[MAXLINE]; 
     struct sockaddr_in nodeAddr; 
 
@@ -161,7 +160,7 @@ void *node_router(void *threadarg) {
     FD_ZERO(&watchFds);
     
     int maxSockfd = sockfd;
-
+    std::cout << "maxSockfd: " << maxSockfd << std::endl;
     FD_SET(sockfd, &watchFds);
 
     memset(&nodeAddr, 0, sizeof(nodeAddr)); 
@@ -180,8 +179,9 @@ void *node_router(void *threadarg) {
     int timeout;
     // initialize timer (2s)                                                                                                                                                                                  
     struct timeval tv;
-    bool connection = true;
-    while (connection == true) 
+    //const char* hello = "hello from port " + port;
+    //const void* buf = &hello;
+    while (true) 
     {
         // set up watcher  , checks to see data is being recieved    
                                                                                                                                                                                             
@@ -190,8 +190,7 @@ void *node_router(void *threadarg) {
         errFds = watchFds;
         tv.tv_sec = 5;
         tv.tv_usec = 0;
-
-       // std::cout << "setting up watcher" << std::endl;
+        
         if ((nReadyFds = select(maxSockfd + 1, &readFds, NULL, &errFds, &tv)) == -1)
         {
         std::cout << "not working" << std::endl;
@@ -201,22 +200,16 @@ void *node_router(void *threadarg) {
 
         if (nReadyFds == 0) 
         {
-            //std::cout << "send hello to port: " << nodePort << std::endl;
-            sendto(sockfd, "hello", strlen("hello"), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
-            timeout++;
-            if (timeout == 10)
-            {
-                std::cout << "connection to port " << nodePort << " will be dropped\n";
-                connection = false;
-            }
-        }
+            std::cout << "send hello to port: " << nodePort << std::endl;
+            sendto(sockfd, "hello" , strlen("hello"), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
+
+         }
         for(int fd = 0; fd <= maxSockfd; fd++) 
         {   // get one socket for reading
             if (FD_ISSET(fd, &readFds))
             {
                 n = recvfrom(sockfd, (char*)buffer, MAXLINE, MSG_WAITALL, (struct sockaddr*) &nodeAddr, &len);
-                //std::cout << buffer << " from port " << nodePort << std::endl;
-                if(buffer != NULL) timeout = 0; 
+                std::cout << buffer << " from port " << nodePort << std::endl;
             }
         }  
     }
