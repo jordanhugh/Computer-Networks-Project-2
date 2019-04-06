@@ -1,7 +1,9 @@
 #include "DV.h"
+#include <bits/stdc++.h> 
 using namespace std;
 
 void wakeUpThread(DV dv, int sockfd, sockaddr_in addr);
+void checkDVtable(DV dv);
 
 int main(int argc, char **argv) {
 	DV dv;
@@ -49,7 +51,7 @@ int main(int argc, char **argv) {
         perror("bind");
         return 5;
     }
-    
+
     // fork() calls a new process, which is called the child process, which runs
     // concurrently with the parent process. For example:
     // 
@@ -65,6 +67,8 @@ int main(int argc, char **argv) {
     // This is how to use fork()
 
     // I used fork to create a second thread that will wake up the other router if the end up in deadlock
+
+
     int pid = fork();
     if (pid == -1) {
 
@@ -76,32 +80,33 @@ int main(int argc, char **argv) {
         while(1){
 
             sleep(10);
+            //dv.dijkstraAlgorithm();
             wakeUpThread(dv, sockfd, otherAddr);
-
-       }
+        }
     }
     else {
         while(1){
-            string message = "Hello World";
-	        vector<uint8_t> wire = dv.encode(message);
+            string message = dv.sendDVupdate();
+            vector<uint8_t> wire1 = dv.encode(message);
 
-            if (sendto(sockfd, (const char*)wire.data(), wire.size(), 0, (struct sockaddr*)&otherAddr, sizeof(otherAddr)) == -1) {
+            if (sendto(sockfd, (const char*)wire1.data(), wire1.size(), 0, (struct sockaddr*)&otherAddr, sizeof(otherAddr)) == -1) {
                 perror("send");
                 return 7;
             }
-
-            sleep(1);
             
-            uint8_t buf[160] = {0};
+            uint8_t buf[1024] = {0};
             memset(buf, '\0', sizeof(buf));
 
             socklen_t addrlen = sizeof(sockaddr_in);
-            if (recvfrom(sockfd, buf, 160, 0, (struct sockaddr*)&otherAddr, &addrlen) == -1) {
+            if (recvfrom(sockfd, buf, 1024, 0, (struct sockaddr*)&otherAddr, &addrlen) == -1) {
                 perror("recv");
                 return 8;
             }
 
-            cout << buf << endl;
+            vector<uint8_t> wire2(&buf[0], &buf[1024]);
+            message = dv.consume(wire2);
+            //cout << message << endl;
+            dv.recvDVupdate(message);
         }
     }
 
@@ -109,10 +114,16 @@ int main(int argc, char **argv) {
 }
 
 void wakeUpThread(DV dv, int sockfd, sockaddr_in addr){
-    string message = "Wake Up!";
+    string message = "WWW\n";
 	vector<uint8_t> wire = dv.encode(message);
 
     if (sendto(sockfd, (const char*)wire.data(), wire.size(), 0, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
         perror("send");
+    }
+}
+
+void checkDVtable(DV dv){
+    for (int i = 0; i < NUMROUTERS; i++){
+        dv.setAsNotReceived(i);
     }
 }
