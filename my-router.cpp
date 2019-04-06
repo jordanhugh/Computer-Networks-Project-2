@@ -1,129 +1,225 @@
-#include "DV.h"
-#include <bits/stdc++.h> 
-using namespace std;
 
-void wakeUpThread(DV dv, int sockfd, sockaddr_in addr);
-void checkDVtable(DV dv);
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+#include <iostream>
+#include <errno.h>
+#include <sstream>
+#include <fstream>
+#include <pthread.h>
+//#include <boost/thread.hpp>
 
-int main(int argc, char **argv) {
-	DV dv;
+#define MAXLINE 1024 
 
-	if (argc < 2){ 
-		perror("Too Few Arugments");
-		return 1;
+std::string findNeighbour(int& i, char** router);
+void router_setup(int port, int& sockfd);
+int findPort(std::string neighbour);
+void* node_router(void *threadarg);
+
+struct thread_data {
+   int  thread_port;
+   char* origin_port;
+   int origin_sockfd;
+};
+
+
+main(int argc, char **argv)
+{
+    int i = 0;
+    int sockfd = 0;
+
+    router_setup(atoi(argv[1]), sockfd);
+
+    std::string neighbours;
+    neighbours = findNeighbour(i, argv);
+
+    std::cout << "My neighbours are:\n" << neighbours << std::endl;
+    
+    std::istringstream b(neighbours);
+    std::string line[i]; 
+    int j = 0;
+    while (std::getline(b, line[j]) && j < i-1) 
+    {
+        if(j < i-1) {++j;}
     }
-    else if (argc == 2){
-        dv.setName(argv[1][0]);
-    }
-	else {
-		perror("Too Many Arguments");
-		return 2;
-	}
 
-    dv.fillUpTable("topology.txt");
-    dv.printTable();
+    int port[j];
 
-    sockaddr_in myAddr = dv.getAddr();
-    sockaddr_in otherAddr;
-    if (dv.getName() == 'A'){
-        otherAddr = dv.getAddrOfNeighbour(1);
+    for(int j=0; j < i; j++)
+    {
+        port[j] = findPort(line[j]);
     }
-    else{
-        otherAddr = dv.getAddrOfNeighbour(0);
+   pthread_t threads[j];
+   struct thread_data td[j];
+   int rc;
+   int t;
+
+   for( t = 0; t <= j; t++ ) {
+      std::cout <<"main() : creating thread, " << t << std::endl;
+      td[t].thread_port = port[t];
+      td[t].origin_port = argv[1];
+      td[t].origin_sockfd = sockfd;
+      rc = pthread_create(&threads[t], NULL, node_router, (void *)&td[t]);
+      if (rc)
+      {
+        perror("thread creation failed"); 
+        exit(EXIT_FAILURE); 
+      }
+   }
+
+    pthread_exit(NULL);
+    return 0;
+}
+
+std::string findNeighbour( int& i, char** router)
+{
+    std::ifstream  afile;
+    afile.open("topology.txt");
+
+    std::string data;
+    std::string body;
+    std::string input;
+    int l = atoi(router[1]);
+    char letter = (l - 10000) + 65;
+ 
+    if (afile.is_open())
+    {
+        while ( std::getline (afile, data) )
+        {       
+            if (data.at(0) == letter)
+            {
+                body = body + data + "\n";
+                i++;
+            }
+        }
+        afile.close();
+    }
+
+    return body;
+}
+
+int findPort(std::string neighbour)
+{
+    char neigh[11];
+    strcpy(neigh, neighbour.c_str());
+    std::string port;
+    for(int i = 4; i < 9; i++)
+    {
+        port = port + neigh[i];
+    }
+    return atoi(port.c_str());
+}
+void router_setup(int port, int& sockfd)
+{
+    struct sockaddr_in addr;
+
+     // Creating socket file descriptor 
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
+    { 
+        perror("socket creation failed"); 
+        exit(EXIT_FAILURE); 
     } 
+    memset(&addr, 0, sizeof(addr)); 
+    // Filling server information 
 
-	// Create a socket using UDP IP
-    int sockfd;
-	if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
-		perror("createsocket");
-		return 3;
-	}
+    addr.sin_family    = AF_INET; // IPv4 
+    addr.sin_addr.s_addr = INADDR_ANY; 
+    addr.sin_port = htons(port); 
 
-    // Allow others to reuse the address
-    int yes = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-        perror("setsockopt");
-        return 4;
-    }
-
-    // Bind address to socket
-    if (bind(sockfd, (struct sockaddr*)&myAddr, sizeof(myAddr)) == -1) {
-        perror("bind");
-        return 5;
-    }
-
-    // fork() calls a new process, which is called the child process, which runs
-    // concurrently with the parent process. For example:
-    // 
-    // Program:
-    // int main(){
-    //      fork();
-    //      cout << "This is how to use fork()\n";
-    //      return 0;
-    // }
-    //
-    // Output:
-    // This is how to use fork()
-    // This is how to use fork()
-
-    // I used fork to create a second thread that will wake up the other router if the end up in deadlock
-
-
-    int pid = fork();
-    if (pid == -1) {
-
-        perror("Error Creating fork()");
-        return 6;
-
-    }
-    else if (pid == 0){
-        while(1){
-
-            sleep(10);
-            //dv.dijkstraAlgorithm();
-            wakeUpThread(dv, sockfd, otherAddr);
-        }
-    }
-    else {
-        while(1){
-            string message = dv.sendDVupdate();
-            vector<uint8_t> wire1 = dv.encode(message);
-
-            if (sendto(sockfd, (const char*)wire1.data(), wire1.size(), 0, (struct sockaddr*)&otherAddr, sizeof(otherAddr)) == -1) {
-                perror("send");
-                return 7;
-            }
-            
-            uint8_t buf[1024] = {0};
-            memset(buf, '\0', sizeof(buf));
-
-            socklen_t addrlen = sizeof(sockaddr_in);
-            if (recvfrom(sockfd, buf, 1024, 0, (struct sockaddr*)&otherAddr, &addrlen) == -1) {
-                perror("recv");
-                return 8;
-            }
-
-            vector<uint8_t> wire2(&buf[0], &buf[1024]);
-            message = dv.consume(wire2);
-            //cout << message << endl;
-            dv.recvDVupdate(message);
-        }
-    }
-
-	return 0;
+    // Bind the socket with the server address 
+    if ( bind(sockfd, (const struct sockaddr *)&addr, sizeof(addr)) < 0 )
+    { 
+        perror("Bind failed"); 
+        exit(EXIT_FAILURE); 
+    }  
 }
 
-void wakeUpThread(DV dv, int sockfd, sockaddr_in addr){
-    string message = "WWW\n";
-	vector<uint8_t> wire = dv.encode(message);
+void *node_router(void *threadarg) {      
+    struct thread_data *port_data;
+    port_data = (struct thread_data *) threadarg;
 
-    if (sendto(sockfd, (const char*)wire.data(), wire.size(), 0, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-        perror("send");
-    }
-}
+    int sockfd = port_data->origin_sockfd;
+    char buffer[MAXLINE]; 
+    struct sockaddr_in nodeAddr; 
 
-void checkDVtable(DV dv){
-    for (int i = 0; i < NUMROUTERS; i++){
-        dv.setAsNotReceived(i);
+    int port = atoi(port_data->origin_port);
+    int nodePort = port_data->thread_port;
+
+    std::cout << "port " << port << " is connecting to port " << nodePort << std::endl;
+
+    fd_set readFds;
+    fd_set errFds;
+    fd_set watchFds;
+    //Clears the bit for the file descriptor fd in the file descriptor set fdset
+    FD_ZERO(&readFds);
+    FD_ZERO(&errFds);
+    FD_ZERO(&watchFds);
+    
+    int maxSockfd = sockfd;
+
+    FD_SET(sockfd, &watchFds);
+
+    memset(&nodeAddr, 0, sizeof(nodeAddr)); 
+    //Information of the node we wish to connect to
+    nodeAddr.sin_family = AF_INET;
+    nodeAddr.sin_port = htons(nodePort);
+
+
+    if (inet_aton("127.0.0.1", &nodeAddr.sin_addr) == 0)
+    {
+        perror("inet_aton failed"); 
+        exit(EXIT_FAILURE); 
     }
+    int n; 
+    socklen_t len;
+    int timeout;
+    // initialize timer (2s)                                                                                                                                                                                  
+    struct timeval tv;
+    bool connection = true;
+    while (connection == true) 
+    {
+        // set up watcher  , checks to see data is being recieved    
+                                                                                                                                                                                            
+        int nReadyFds = 0;
+        readFds = watchFds;
+        errFds = watchFds;
+        tv.tv_sec = 5;
+        tv.tv_usec = 0;
+
+       // std::cout << "setting up watcher" << std::endl;
+        if ((nReadyFds = select(maxSockfd + 1, &readFds, NULL, &errFds, &tv)) == -1)
+        {
+        std::cout << "not working" << std::endl;
+        perror("select");
+        exit(EXIT_FAILURE); 
+        }
+
+        if (nReadyFds == 0) 
+        {
+            //std::cout << "send hello to port: " << nodePort << std::endl;
+            sendto(sockfd, "hello", strlen("hello"), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
+            timeout++;
+            if (timeout == 10)
+            {
+                std::cout << "connection to port " << nodePort << " will be dropped\n";
+                connection = false;
+            }
+        }
+        for(int fd = 0; fd <= maxSockfd; fd++) 
+        {   // get one socket for reading
+            if (FD_ISSET(fd, &readFds))
+            {
+                n = recvfrom(sockfd, (char*)buffer, MAXLINE, MSG_WAITALL, (struct sockaddr*) &nodeAddr, &len);
+                //std::cout << buffer << " from port " << nodePort << std::endl;
+                if(buffer != NULL) timeout = 0; 
+            }
+        }  
+    }
+    std::cout << "thread is ending\n";
+    pthread_exit(NULL);
 }
