@@ -12,13 +12,19 @@
 #include <sstream>
 #include <fstream>
 #include <pthread.h>
+#include <vector>
+#include <unistd.h>
+#include "DV.h"
 
 #define MAXLINE 1024 
 
 std::string findNeighbour(int& i, char** router);
-void router_setup(int port, int& sockfd);
 int findPort(std::string neighbour);
+int findDistance(std::string neighbour);
+void router_setup(int port, int& sockfd);
 void* node_router(void *threadarg);
+
+DV dv;
 
 struct thread_data {
    int  thread_port;
@@ -28,6 +34,7 @@ struct thread_data {
 
 main(int argc, char **argv)
 {
+
     int i = 0;
     int sockfd = 0;
 
@@ -37,13 +44,13 @@ main(int argc, char **argv)
     neighbours = findNeighbour(i, argv);
 
     std::cout << "My neighbours are:\n" << neighbours << std::endl;
-    
+
     std::istringstream b(neighbours);
     std::string line[i]; 
     int j = 0;
     while (std::getline(b, line[j]) && j < i-1) 
     {
-        if(j < i-1) {++j;}
+        if(j < i-1) ++j;
     }
 
     int port[j];
@@ -51,15 +58,15 @@ main(int argc, char **argv)
     for(int j=0; j < i; j++)
     {
         port[j] = findPort(line[j]);
+        //port[j][1]= findDistance(line[j]);
     }
-   pthread_t threads[j];
-   struct thread_data td[j];
-   int rc;
-   long int t;
 
-   for( t = 0; t < i; t++ ) 
-   {
-      std::cout <<"main() : creating thread, " << t << std::endl;
+    pthread_t threads[j];
+    struct thread_data td[j];
+    int rc;
+
+    for(long int t = 0; t < i; t++ ) 
+    {
       td[t].thread_port = port[t];
       td[t].origin_port = argv[1];
       rc = pthread_create(&threads[t], NULL, node_router, (void *)&td[t]);
@@ -68,7 +75,18 @@ main(int argc, char **argv)
         perror("thread creation failed"); 
         exit(EXIT_FAILURE); 
       }
-   }
+    }
+
+    for(int t = 0 ; t < i; ++t)
+    {
+        void* status;
+        int k = pthread_join(threads[t], &status);
+        if (k != 0)
+        {
+            perror("thread join failed"); 
+            exit(EXIT_FAILURE); 
+        }
+    }
 
     pthread_exit(NULL);
     return 0;
@@ -84,7 +102,10 @@ std::string findNeighbour( int& i, char** router)
     std::string input;
     int l = atoi(router[1]);
     char letter = (l - 10000) + 65;
- 
+    dv.setName(letter);
+    dv.fillUpTable("topology.txt");
+    dv.printTable();
+    
     if (afile.is_open())
     {
         while ( std::getline (afile, data) )
@@ -107,6 +128,18 @@ int findPort(std::string neighbour)
     strcpy(neigh, neighbour.c_str());
     std::string port;
     for(int i = 4; i < 9; i++)
+    {
+        port = port + neigh[i];
+    }
+    return atoi(port.c_str());
+}
+
+int findDistance(std::string neighbour)
+{
+    char neigh[11];
+    strcpy(neigh, neighbour.c_str());
+    std::string port;
+    for(int i = 10; i < 11; i++)
     {
         port = port + neigh[i];
     }
@@ -138,7 +171,8 @@ void router_setup(int port, int& sockfd)
     }  
 }
 
-void *node_router(void *threadarg) {      
+void *node_router(void *threadarg) 
+{      
     struct thread_data *port_data;
     port_data = (struct thread_data *) threadarg;
 
@@ -148,7 +182,7 @@ void *node_router(void *threadarg) {
 
     int port = atoi(port_data->origin_port);
     int nodePort = port_data->thread_port;
-
+    
     std::cout << "port " << port << " is connecting to port " << nodePort << std::endl;
 
     fd_set readFds;
@@ -160,7 +194,6 @@ void *node_router(void *threadarg) {
     FD_ZERO(&watchFds);
     
     int maxSockfd = sockfd;
-    std::cout << "maxSockfd: " << maxSockfd << std::endl;
     FD_SET(sockfd, &watchFds);
 
     memset(&nodeAddr, 0, sizeof(nodeAddr)); 
@@ -176,40 +209,40 @@ void *node_router(void *threadarg) {
     }
     int n; 
     socklen_t len;
-    int timeout;
+    int timeout = 0;
     // initialize timer (2s)                                                                                                                                                                                  
     struct timeval tv;
-    //const char* hello = "hello from port " + port;
-    //const void* buf = &hello;
     while (true) 
     {
-        // set up watcher  , checks to see data is being recieved    
-                                                                                                                                                                                            
+        // set up watcher  , checks to see data is being recieved                                                                                                                                                                                       
         int nReadyFds = 0;
         readFds = watchFds;
         errFds = watchFds;
-        tv.tv_sec = 5;
+        tv.tv_sec = 25;
         tv.tv_usec = 0;
-        
+
         if ((nReadyFds = select(maxSockfd + 1, &readFds, NULL, &errFds, &tv)) == -1)
         {
-        std::cout << "not working" << std::endl;
-        perror("select");
-        exit(EXIT_FAILURE); 
+            perror("select");
+            exit(EXIT_FAILURE); 
         }
 
+    
         if (nReadyFds == 0) 
         {
-            std::cout << "send hello to port: " << nodePort << std::endl;
-            sendto(sockfd, "hello" , strlen("hello"), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
-
-         }
+            std::string message = dv.sendDVupdate();
+            vector<uint8_t> wire1 = dv.encode(message);
+            sendto(sockfd, (const char*)wire1.data(), wire1.size(), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
+        }
         for(int fd = 0; fd <= maxSockfd; fd++) 
         {   // get one socket for reading
             if (FD_ISSET(fd, &readFds))
             {
                 n = recvfrom(sockfd, (char*)buffer, MAXLINE, MSG_WAITALL, (struct sockaddr*) &nodeAddr, &len);
-                std::cout << buffer << " from port " << nodePort << std::endl;
+
+                vector<uint8_t> wire2 (&buffer[0], &buffer[1024]);
+                std::string message = dv.consume(wire2);
+                dv.recvDVupdate(message);
             }
         }  
     }
