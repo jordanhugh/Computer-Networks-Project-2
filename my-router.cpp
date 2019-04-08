@@ -18,19 +18,30 @@
 
 #define MAXLINE 1024 
 
-std::string findNeighbour(int& i, char** router);
-int findPort(std::string neighbour);
-int findDistance(std::string neighbour);
-void router_setup(int port, int& sockfd);
-void* node_router(void *threadarg);
-
-DV dv;
-
-struct thread_data {
+struct thread_data 
+{
    int  thread_port;
-   char* origin_port;
+   int  origin_port;
 };
 
+struct packet_data
+{
+    std::string type;
+    int source;
+    int dest;
+    int length;
+    std::string payload;
+};
+
+std::string findNeighbour(int& i, int myPort);
+int findPort(std::string neighbour);
+void router_setup(int port, int& sockfd);
+void* node_router(void *threadarg);
+std::string makeDataPacket(int source, int dest);
+bool checkIfData(std::string packet);
+void getData(std::string message);
+
+DV dv;
 
 main(int argc, char **argv)
 {
@@ -38,10 +49,12 @@ main(int argc, char **argv)
     int i = 0;
     int sockfd = 0;
 
-    router_setup(atoi(argv[1]), sockfd);
+    int myPort = atoi(argv[1]);
+
+    router_setup(myPort, sockfd);
 
     std::string neighbours;
-    neighbours = findNeighbour(i, argv);
+    neighbours = findNeighbour(i, myPort);
 
     std::cout << "My neighbours are:\n" << neighbours << std::endl;
 
@@ -58,7 +71,6 @@ main(int argc, char **argv)
     for(int j=0; j < i; j++)
     {
         port[j] = findPort(line[j]);
-        //port[j][1]= findDistance(line[j]);
     }
 
     pthread_t threads[j];
@@ -68,7 +80,7 @@ main(int argc, char **argv)
     for(long int t = 0; t < i; t++ ) 
     {
       td[t].thread_port = port[t];
-      td[t].origin_port = argv[1];
+      td[t].origin_port = myPort;
       rc = pthread_create(&threads[t], NULL, node_router, (void *)&td[t]);
       if (rc)
       {
@@ -92,7 +104,7 @@ main(int argc, char **argv)
     return 0;
 }
 
-std::string findNeighbour( int& i, char** router)
+std::string findNeighbour( int& i, int myPort)
 {
     std::ifstream  afile;
     afile.open("topology.txt");
@@ -100,7 +112,7 @@ std::string findNeighbour( int& i, char** router)
     std::string data;
     std::string body;
     std::string input;
-    int l = atoi(router[1]);
+    int l = myPort;
     char letter = (l - 10000) + 65;
     dv.setName(letter);
     dv.fillUpTable("topology.txt");
@@ -128,18 +140,6 @@ int findPort(std::string neighbour)
     strcpy(neigh, neighbour.c_str());
     std::string port;
     for(int i = 4; i < 9; i++)
-    {
-        port = port + neigh[i];
-    }
-    return atoi(port.c_str());
-}
-
-int findDistance(std::string neighbour)
-{
-    char neigh[11];
-    strcpy(neigh, neighbour.c_str());
-    std::string port;
-    for(int i = 10; i < 11; i++)
     {
         port = port + neigh[i];
     }
@@ -180,7 +180,7 @@ void *node_router(void *threadarg)
     char buffer[MAXLINE]; 
     struct sockaddr_in nodeAddr; 
 
-    int port = atoi(port_data->origin_port);
+    int port = port_data->origin_port;
     int nodePort = port_data->thread_port;
     
     std::cout << "port " << port << " is connecting to port " << nodePort << std::endl;
@@ -218,7 +218,7 @@ void *node_router(void *threadarg)
         int nReadyFds = 0;
         readFds = watchFds;
         errFds = watchFds;
-        tv.tv_sec = 25;
+        tv.tv_sec =  5;
         tv.tv_usec = 0;
 
         if ((nReadyFds = select(maxSockfd + 1, &readFds, NULL, &errFds, &tv)) == -1)
@@ -234,6 +234,7 @@ void *node_router(void *threadarg)
             vector<uint8_t> wire1 = dv.encode(message);
             sendto(sockfd, (const char*)wire1.data(), wire1.size(), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
         }
+
         for(int fd = 0; fd <= maxSockfd; fd++) 
         {   // get one socket for reading
             if (FD_ISSET(fd, &readFds))
@@ -242,10 +243,91 @@ void *node_router(void *threadarg)
 
                 vector<uint8_t> wire2 (&buffer[0], &buffer[1024]);
                 std::string message = dv.consume(wire2);
-                dv.recvDVupdate(message);
-            }
+                if (checkIfData(message) == 0)
+                {
+                    dv.recvDVupdate(message);
+                }   
+                else 
+                {
+                    dv.timestamp();
+                    packet_data data = getData(message);
+                    std::cout << "Current Port: " << port << std::endl;
+                    std::cout << "Previous Port: " << nodePort << std::endl;
+
+                    if(data.dest = port)
+                    {
+                        std::cout << "Text phrase: " << data.payload;
+                    }
+
+                    else 
+                    {
+                        
+                    }
+                    
+                }   
+            } 
         }  
     }
     std::cout << "thread is ending\n";
     pthread_exit(NULL);
+}
+
+std::string makeDataPacket(int source, int dest)
+{
+    std::string payload = "Hey there this is a message";
+    std::stringstream ss;
+    ss << "data,";
+    ss << source << ",";
+	ss << dest << ",";
+    ss << payload.length() << ",";
+	ss << payload << ".";
+    
+    return ss.str();
+}
+
+bool checkIfData(std::string packet)
+{
+    std::string field;
+    std::stringstream linestream(packet);
+    getline(linestream, field, ',');
+	std::string type = field;
+    if (type != "data")
+    {
+        return 0;
+    }
+    return 1;
+}
+
+packet_data getData(std::string message)
+{
+    packet_data data;
+    std::string field;
+
+    std::stringstream linestream(message);
+    getline(linestream, field, ',');
+	data.type = field;
+
+    getline(linestream, field, ',');
+	data.source = stoi(field);
+
+    getline(linestream, field, ',');
+	data.dest = stoi(field);
+
+    getline(linestream, field, ',');
+	data.length = stoi(field);
+
+    getline(linestream, field, '.');
+	data.payload = field;
+
+    std::cout << "Type: " << data.type << std::endl;
+    std::cout << "Source: " << data.source << std::endl;
+    std::cout << "Destination: " << data.dest << std::endl;
+
+    return data;
+
+}
+
+void printData(std::message)
+{
+
 }

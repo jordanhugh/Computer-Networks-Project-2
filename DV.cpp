@@ -1,9 +1,8 @@
 #include "DV.h"
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 using namespace std;
-
-DV::DV(){}
-
-DV::~DV(){}
 
 char DV::getName(){
 	return name;
@@ -25,24 +24,23 @@ sockaddr_in DV::getAddr(){
 	return addr;
 }
 
+sockaddr_in DV::getPortFromIndex(int i){
+	return table[i].getAddr();
+}
+
 void DV::setAddr(sockaddr_in a){
 	addr = a;
 }
 
+bool DV::checkIfNeighbour(int i){
+	if(table[i].getName() != name && table[i].checkIfValid()){
+		return true;
+	}
+	return false;
+}
+
 sockaddr_in DV::getAddrOfNeighbour(int i){
 	return table[i].getAddr();
-}
-
-bool DV::checkIfAlreadyReceived(int i){
-	return received[i];
-}
-
-void DV::setAsAlreadyReceived(int i){
-	received[i] = true;
-}
-
-void DV::setAsNotReceived(int i){
-	received[i] = false;
 }
 
 void DV::initTable(){
@@ -57,10 +55,11 @@ void DV::initTable(){
 void DV::fillUpTable(string filename){
 	fstream topology(filename);
 
+
 	initTable();
-	for(int i = 0; i < NUMROUTERS; i++){
+	/*for(int i = 0; i < NUMROUTERS; i++){
 		received[i] = false;
-	}
+	}*/
 	initGraph();
 	
 	string line;
@@ -90,34 +89,53 @@ void DV::fillUpTable(string filename){
 		node.setCost(stoi(field));
 
 		if (name == node.getName()){
-			setAddr(node.getAddr());
+			port = node.getPort();
+			addr = node.getAddr();
 		}
 		else if (name == n){
-			int i = charToNum(node.getName());
-			table[i] = node;
+			int dest = charToNum(node.getName());
+			table[dest] = node;
 			initEdge(n, node.getName(), node.getCost());
 		}
 	}
 }
 
+void DV::printTimestamp(){
+	auto start = std::chrono::system_clock::now();
+	auto end = std::chrono::system_clock::now();
+
+	std::time_t end_time = std::chrono::system_clock::to_time_t(end);
+	std::cout << "Timestamp: " << std::ctime(&end_time) << std::endl;
+}
+
 void DV::printTable(){
+	cout << left << setw(15) << "Destination";
+	cout << left << setw(15) << "Cost";
+	cout << left << setw(25) << "Outgoing UDP Port";
+	cout << "Destination UDP Port\n";
+
 	for (int i = 0; i < NUMROUTERS; i++){
-		cout << "Name: " << table[i].getName() << endl;
-		cout << "Port: " << table[i].getPort() << endl;
-		cout << "Cost: " << table[i].getCost() << endl;
-		cout << endl;
+		cout << left << setw(15) << table[i].getName();
+		cout << left << setw(15) << table[i].getCost();
+		cout << port << "(Node " << name << left << setw(13) << ")";
+		cout << table[i].getPort() << "(Node " << table[i].getName() << ")\n";
 	}
+	cout << "\n";
 }
 
 string DV::sendDVupdate(){
 	std::stringstream ss;
 
-	for(int i = 0; i < NUMROUTERS; i ++){
-		if(table[i].checkIfValid()){
-			ss << name << ",";
-			ss << table[i].getName() << ",";
-			ss << table[i].getPort() << ","; 
-			ss << table[i].getCost() << ",";
+	//ss << "control,";
+
+	for(int j = 0; j < NUMROUTERS; j++){
+		for(int i = 0; i < NUMROUTERS; i++){
+			if (graph[j][i] != INF){
+				ss << numToChar(j) << ",";
+				ss << numToChar(i) << ",";
+				ss << table[i].getPort() << ",";
+				ss << graph[j][i] << ",";
+			}
 		}
 	}
 	ss << "XXX\n";
@@ -146,9 +164,9 @@ void DV::recvDVupdate(string update){
 			DVnode dest;
 
 			src = linestream.str()[0];
-			if(received[charToNum(src)]){
+			/*if(received[charToNum(src)]){
 				break;
-			}
+			}*/
 			//cout << "S=" << src << ",";
 
 			linestream.str("");
@@ -178,8 +196,36 @@ void DV::recvDVupdate(string update){
 			int u = charToNum(src);
 			int v = charToNum(dest.getName());
 			if (graph[v][u] != dest.getCost()){
+				if(table[v].getName() != dest.getName() ){
+					table[v].setName(dest.getName());
+				}
+				if(table[v].getPort() == -1){
+					table[v].setPort(dest.getPort());
+				}
+
+				
+				//printTopology();
+
+				//Print out Timestamp
+				printTimestamp();
+
+				//Print Table beforehand
+				printTable();
+
+				//Add Edge and Calculate Shortest Distances
 				initEdge(src, dest.getName(), dest.getCost());
-				printArr(); 
+				bellmanFordAlgorithm();
+
+				//Print DV that caused the changed
+				cout << "<" << name << ",";
+				cout << dest.getName() << ",";
+				cout << dest.getPort() << ",";
+				cout << dest.getCost() << ">\n\n";
+
+				//Print Table afterwards
+				printTable();
+
+
 			}
 
 			linestream.str("");
@@ -188,10 +234,10 @@ void DV::recvDVupdate(string update){
 			};
 			i++;
 		}
-		if(!received[charToNum(src)]){
+		/*if(!received[charToNum(src)]){
 			received[charToNum(src)] = true;
-			printArr();
-		};
+			printTopology();
+		};*/
 	}
 }
 
@@ -218,105 +264,67 @@ void DV::initGraph() {
 	}
 }
   
-void DV::printArr() { 
+void DV::printTopology() { 
     printf("Source, Destination, Cost\n"); 
     for (int j = 0; j < NUMROUTERS; j++) {
 		for (int i = 0; i < NUMROUTERS; i++){
 			if(graph[j][i] != INF){
 				cout << numToChar(j) << ",";
 				cout << numToChar(i) << ",";
+				cout << table[i].getPort() << ",";
 				cout << graph[j][i] << "\n";
 			}
 		}
 	}
-} 
-
-int DV::minDistance(int dist[], bool sptSet[]) { 
-	int min = INF;
-    int min_i;
-   
-    for (int i = 0; i < NUMROUTERS; i++) {
-    	if (sptSet[i] == false && dist[i] <= min) {
-        	min = dist[i];
-			min_i = i; 
-	 	}
-	}
-    return min_i; 
-} 
-   
-int DV::printSolution(int dist[]) { 
-	printf("Vertex   Distance from Source\n"); 
-	for (int i = 0; i < NUMROUTERS; i++) {
-		cout << i << "to" << dist[i];
-	}
 }
 
-void DV::dijkstraAlgorithm() { 
-    int dist[NUMROUTERS];
-	bool sptSet[NUMROUTERS]; 
-   
-    for (int i = 0; i < NUMROUTERS; i++) {
-        dist[i] = INF;
-		sptSet[i] = false; 
-	}
-   
-	int src = charToNum(name);
-    dist[src] = 0; 
-   
-    for (int i = 0; i < NUMROUTERS - 1; i++) { 
-       	int u = minDistance(dist, sptSet); 
-   
-        sptSet[u] = true; 
-   
-        for (int v = 0; v < NUMROUTERS; v++) {
-        	if (!sptSet[v] && graph[u][v] && dist[u] != INF && dist[u] + graph[u][v] < dist[v]) 
-            dist[v] = dist[u] + graph[u][v]; 
-     	} 
-	}
-    printSolution(dist); 
-} 
+void DV::bellmanFordAlgorithm() { 
 
-/* //Work in Progress...
-void DV::BellmanFordAlgorithm() { 
-    //int vertices = graph->vertices; 
-    //int edges = graph->edges; 
     int dist[NUMROUTERS]; 
-  
-    // Initiate the distances from the starting vertice to all the other vertices as INFINITE
     for (int i = 0; i < NUMROUTERS; i++) {
         dist[i] = INF;
     }
-    dist[charToNum(name)] = 0;
+	
+	int src = charToNum(name);
+    dist[src] = 0;
   
-    // Relaxes all the edges 'V - 1' times to find the shortest path to all other vertices
-    int u, v;
-	int cost;
     for (int i = 1; i <= NUMROUTERS - 1; i++) { 
+        for (int u = 0; u < NUMROUTERS; u++) { 
+			for (int v = 0; v < NUMROUTERS; v++){
+				if(graph[v][u] == INF){
+					continue;
+				}
 
-        for (int j = 0; j < edges; j++) { 
+				if (dist[u] != INF && dist[u] + graph[v][u] < dist[v]) {
+					dist[v] = dist[u] + graph[v][u]; 
+				}
+			}
+        }
+    } 
+   
+	/*for (int u = 0; u < NUMROUTERS; u++) { 
+		for (int v = 0; v < NUMROUTERS; v++){
+			if(graph[v][u] == INF){
+				continue;
+			}
 
-            u = charToNum(graph->edge[j].source);
-            v = charToNum(graph->edge[j].destination);
-            cost = graph->edge[j].cost; 
-            if (dist[u] != INF && dist[u] + cost < dist[v]) {
-                dist[v] = dist[u] + cost; 
-            }
-        } 
-    } 
-  
-    // Repeat to check for negative paths 
-    for (int i = 0; i < edges; i++) { 
-        u = charToNum(graph->edge[i].source);
-        v = charToNum(graph->edge[i].destination);
-        cost = graph->edge[i].cost; 
-        if (dist[u] != INF && dist[u] + cost < dist[v]) 
-            printf("Graph contains negative cost cycle"); 
-    } 
-  
-    return; 
-}*/
+			if (dist[u] != INF && dist[u] + graph[v][u] < dist[v]) {
+				cout << "Graph contains negative cost cycles";
+			}
+		}
+	}*/
+
+	updateTable(dist); 
+}
+
+void DV::updateTable(int dist[]){
+	for (int i = 0; i < NUMROUTERS; i++){
+		table[i].setCost(dist[i]);
+	}
+}
 
 vector<uint8_t> DV::encode(string message) {
+
 	vector<uint8_t> wire(message.begin(), message.end());
 
 	return wire;
@@ -327,3 +335,4 @@ string DV::consume(vector<uint8_t> wire) {
 
 	return message;
 }
+
