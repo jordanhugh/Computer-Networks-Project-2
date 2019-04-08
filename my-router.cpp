@@ -39,7 +39,8 @@ void router_setup(int port, int& sockfd);
 void* node_router(void *threadarg);
 std::string makeDataPacket(int source, int dest);
 bool checkIfData(std::string packet);
-void getData(std::string message);
+packet_data getData(std::string message);
+void sendDataPacket(std::string packet, int source, int dest);
 
 DV dv;
 
@@ -48,10 +49,16 @@ main(int argc, char **argv)
 
     int i = 0;
     int sockfd = 0;
-
     int myPort = atoi(argv[1]);
 
     router_setup(myPort, sockfd);
+
+    if (myPort == 10006)
+    {
+        std::string dataPacket = makeDataPacket(10000, 10003);
+        sendDataPacket(dataPacket, 10006, 10000);
+        return 0;
+    }
 
     std::string neighbours;
     neighbours = findNeighbour(i, myPort);
@@ -230,7 +237,7 @@ void *node_router(void *threadarg)
     
         if (nReadyFds == 0) 
         {
-            std::string message = dv.sendDVupdate();
+            std::string message = dv.sendPacket();
             vector<uint8_t> wire1 = dv.encode(message);
             sendto(sockfd, (const char*)wire1.data(), wire1.size(), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
         }
@@ -245,23 +252,29 @@ void *node_router(void *threadarg)
                 std::string message = dv.consume(wire2);
                 if (checkIfData(message) == 0)
                 {
-                    dv.recvDVupdate(message);
+                    dv.recvPacket(message);
                 }   
                 else 
                 {
-                    dv.timestamp();
+                    dv.printTimestamp();
                     packet_data data = getData(message);
                     std::cout << "Current Port: " << port << std::endl;
                     std::cout << "Previous Port: " << nodePort << std::endl;
 
-                    if(data.dest = port)
+                    if(data.dest == port)
                     {
                         std::cout << "Text phrase: " << data.payload;
                     }
 
                     else 
                     {
-                        
+                     
+                        int path = dv.getShortestPath(data.dest-10000, 0);
+                        sockaddr_in packetAddr = dv.getPortFromIndex(path);
+                        vector<uint8_t> wire1 = dv.encode(message);
+                        sendto(sockfd, (const char*)wire1.data(), wire1.size(), MSG_CONFIRM, 
+                        (const struct sockaddr*) &packetAddr, sizeof(packetAddr));
+                       
                     }
                     
                 }   
@@ -274,7 +287,7 @@ void *node_router(void *threadarg)
 
 std::string makeDataPacket(int source, int dest)
 {
-    std::string payload = "Hey there this is a message";
+    std::string payload = "Hey there this is a message\n";
     std::stringstream ss;
     ss << "data,";
     ss << source << ",";
@@ -327,7 +340,32 @@ packet_data getData(std::string message)
 
 }
 
-void printData(std::message)
+void sendDataPacket(std::string packet, int source, int dest)
 {
 
+    int sockfd = 3;
+    char buffer[MAXLINE]; 
+    struct sockaddr_in nodeAddr; 
+
+    int port = source;
+    int nodePort = dest;
+    
+    std::cout << "port " << port << " is connecting to port " << nodePort << std::endl;
+
+    memset(&nodeAddr, 0, sizeof(nodeAddr)); 
+    //Information of the node we wish to connect to
+    nodeAddr.sin_family = AF_INET;
+    nodeAddr.sin_port = htons(nodePort);
+
+    if (inet_aton("127.0.0.1", &nodeAddr.sin_addr) == 0)
+    {
+        perror("inet_aton failed"); 
+        exit(EXIT_FAILURE); 
+    }                                                                                                                                                             
+    
+    vector<uint8_t> wire1 = dv.encode(packet);
+    sendto(sockfd, (const char*)wire1.data(), wire1.size(), MSG_CONFIRM, (const struct sockaddr*) &nodeAddr, sizeof(nodeAddr));
+        
 }
+
+
