@@ -11,6 +11,7 @@
 #include <fstream>
 #include <vector>
 #include <stdint.h>
+#include <pthread.h>
 using namespace std;
 
 class DVnode{
