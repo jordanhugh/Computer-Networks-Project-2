@@ -15,6 +15,8 @@
 #include <vector>
 #include <unistd.h>
 #include "DV.h"
+#include <chrono>
+#include <ctime>
 
 #define MAXLINE 1024 
 
@@ -39,14 +41,14 @@ void router_setup(int port, int& sockfd);
 void* node_router(void *threadarg);
 std::string makeDataPacket(int source, int dest);
 bool checkIfData(std::string packet);
-packet_data getData(std::string message);
+packet_data getData(std::string message, int port, int nodePort);
 void sendDataPacket(std::string packet, int source, int dest);
 
 DV dv;
 
 main(int argc, char **argv)
 {
-
+    dv.clearFile();
     int i = 0;
     int sockfd = 0;
     int myPort = atoi(argv[1]);
@@ -228,7 +230,7 @@ void *node_router(void *threadarg)
         tv.tv_sec =  5;
         tv.tv_usec = 0;
 
-        if ((nReadyFds = select(maxSockfd + 1, &readFds, NULL, &errFds, &tv)) == -1)
+        if ((nReadyFds = select  (maxSockfd + 1, &readFds, NULL, &errFds, &tv)) == -1)
         {
             perror("select");
             exit(EXIT_FAILURE); 
@@ -256,14 +258,15 @@ void *node_router(void *threadarg)
                 }   
                 else 
                 {
-                    dv.printTimestamp();
-                    packet_data data = getData(message);
-                    std::cout << "Current Port: " << port << std::endl;
-                    std::cout << "Previous Port: " << nodePort << std::endl;
+                    packet_data data = getData(message, port, nodePort);
 
                     if(data.dest == port)
                     {
-                        std::cout << "Text phrase: " << data.payload;
+                        std::stringstream ss;
+                        ss << "Text phrase: " << data.payload;
+                        dv.outputToFile(ss.str());
+                        std::cout << ss.str() << std::endl;
+
                     }
 
                     else 
@@ -294,6 +297,8 @@ std::string makeDataPacket(int source, int dest)
 	ss << dest << ",";
     ss << payload.length() << ",";
 	ss << payload << ".";
+
+    std::cout << ss.str() << std::endl;
     
     return ss.str();
 }
@@ -311,7 +316,7 @@ bool checkIfData(std::string packet)
     return 1;
 }
 
-packet_data getData(std::string message)
+packet_data getData(std::string message, int port, int nodePort)
 {
     packet_data data;
     std::string field;
@@ -332,9 +337,21 @@ packet_data getData(std::string message)
     getline(linestream, field, '.');
 	data.payload = field;
 
-    std::cout << "Type: " << data.type << std::endl;
-    std::cout << "Source: " << data.source << std::endl;
-    std::cout << "Destination: " << data.dest << std::endl;
+    std::stringstream info;
+
+    auto start = std::chrono::system_clock::now();
+	auto end = std::chrono::system_clock::now();
+	std::time_t end_time = std::chrono::system_clock::to_time_t(end);
+	info << "Timestamp: " << std::ctime(&end_time);
+    info << "Type: " << data.type << "\n";
+    info << "Source: " << data.source << "\n";
+    info << "Destination: " << data.dest << "\n";
+    info << "Current Port: " << port << "\n";
+    info << "Previous Port: " << nodePort << "\n";
+
+    std::cout << info.str() << std::endl;
+    dv.outputToFile(info.str());
+
 
     return data;
 

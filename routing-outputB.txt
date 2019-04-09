@@ -1,0 +1,322 @@
+Timestamp: Tue Apr  9 13:53:25 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              4              10001(Node B)            10000(Node A)
+B              1              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<A,B,10001,4>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              4              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:25 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              4              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<A,E,10004,1>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              4              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:25 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              4              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<E,A,10000,1>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:25 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<E,B,10001,2>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:25 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<E,F,10005,3>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<C,B,10001,3>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+X              2147483647     10001(Node B)            -1(Node X)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              2147483647     10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<C,D,10003,4>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<C,F,10005,1>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<D,C,10002,4>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<D,F,10005,3>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<F,B,10001,1>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              3              10001(Node B)            10002(Node C)
+D              7              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<F,C,10002,1>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              2              10001(Node B)            10002(Node C)
+D              6              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              2              10001(Node B)            10002(Node C)
+D              6              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<F,D,10003,3>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              2              10001(Node B)            10002(Node C)
+D              4              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+Timestamp: Tue Apr  9 13:53:35 2019
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              2              10001(Node B)            10002(Node C)
+D              4              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+
+<F,E,10004,3>
+
+
+Destination    Cost           Outgoing UDP Port        Destination UDP Port
+A              3              10001(Node B)            10000(Node A)
+B              0              10001(Node B)            10001(Node B)
+C              2              10001(Node B)            10002(Node C)
+D              4              10001(Node B)            10003(Node D)
+E              2              10001(Node B)            10004(Node E)
+F              1              10001(Node B)            10005(Node F)
+
+

@@ -10,7 +10,7 @@ my-router.o:
 	g++ -std=c++11 -c my-router.cpp
 
 my-router:
-	g++ -o my-router -std=c++11 -O2 my-router.o DV.o DVnode.o
+	g++ -o my-router -pthread -std=c++11 -O2 my-router.o DV.o DVnode.o
 
 clean:
 	rm -rf *.o *~ *.gch *.swp *.dSYM my-router *.tar.gz

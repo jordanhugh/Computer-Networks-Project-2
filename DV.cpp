@@ -1,4 +1,5 @@
 #include "DV.h"
+#include <cstdlib>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -20,20 +21,32 @@ void DV::setPort(int p){
 	port = p;
 }
 
-sockaddr_in DV::getAddr(){
-	return addr;
-}
-
 sockaddr_in DV::getPortFromIndex(int i){
 	return table[i].getAddr();
 }
 
-void DV::setAddr(sockaddr_in a){
-	addr = a;
+
+sockaddr_in DV::getAddr(){
+	return addr;
+}
+
+void DV::setAddr(){
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port); // Short, network byte order
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
+}
+
+int DV::getNumRouters(){
+	return numrouters;
+}
+
+void DV::setNumRouters(int num){
+	numrouters = num;
 }
 
 bool DV::checkIfNeighbour(int i){
-	if(table[i].getName() != name && table[i].checkIfValid()){
+	if(name != table[i].getName() && table[i].checkIfValid()){
 		return true;
 	}
 	return false;
@@ -43,10 +56,32 @@ sockaddr_in DV::getAddrOfNeighbour(int i){
 	return table[i].getAddr();
 }
 
+int DV::getShortestPath(int dest, int i){
+	return shortestPath[dest][0];
+}
+
 void DV::initTable(){
-	for(int i = 0; i < NUMROUTERS; i++){
+	table = new DVnode[numrouters];
+
+	for(int i = 0; i < numrouters; i++){
 		table[i].setValidity(false);
-		table[i].setName('0');
+		table[i].setName('X');
+		table[i].setPort(-1);
+		table[i].setCost(INF);
+	}
+}
+
+void DV::resetTable(){
+
+	//Reallocate Memory for new Table
+	DVnode* temp = table;
+	table = new DVnode[numrouters];
+	delete[] temp;
+	
+	//Deallocate Memory for old table
+	for(int i = 0; i < numrouters; i++){
+		table[i].setValidity(false);
+		table[i].setName('X');
 		table[i].setPort(-1);
 		table[i].setCost(INF);
 	}
@@ -54,140 +89,250 @@ void DV::initTable(){
 
 void DV::fillUpTable(string filename){
 	fstream topology(filename);
-
-
-	initTable();
-	/*for(int i = 0; i < NUMROUTERS; i++){
-		received[i] = false;
-	}*/
-	initGraph();
 	
-	string line;
-	string field;
-	while (topology.peek() != EOF){
-		getline(topology, line);
-		stringstream linestream(line);
-
-		DVnode node;
-		node.setValidity(true);
-
-		//Source Router
-		getline(linestream, field, ',');
-		char n = field[0];
-
-		//Neighbour Router
-		getline(linestream, field, ',');
-		node.setName(field[0]);
-
-		//Neighbour Port Number
-		getline(linestream, field, ',');
-		node.setPort(stoi(field));
-		node.setAddr();
-
-		//Cost
-		getline(linestream, field, ',');
-		node.setCost(stoi(field));
-
-		if (name == node.getName()){
-			port = node.getPort();
-			addr = node.getAddr();
+	if(name >= 'A' && name <= 'F'){
+		numrouters = 6;
+		initTable();
+		initGraph();
+		shortestPath = new int*[numrouters];
+		for (int i = 0; i < numrouters; i++) {
+  			shortestPath[i] = new int[numrouters];
 		}
-		else if (name == n){
-			int dest = charToNum(node.getName());
-			table[dest] = node;
-			initEdge(n, node.getName(), node.getCost());
+
+		string line;
+		string field;
+		while (topology.peek() != EOF){
+			getline(topology, line);
+			stringstream linestream(line);
+
+			DVnode node;
+			node.setValidity(true);
+
+			//Source Router
+			getline(linestream, field, ',');
+			char n = field[0];
+
+			//Neighbour Router
+			getline(linestream, field, ',');
+			node.setName(field[0]);
+
+			//Neighbour Port Number
+			getline(linestream, field, ',');
+			node.setPort(stoi(field));
+			node.setAddr();
+
+			//Cost
+			getline(linestream, field, ',');
+			node.setCost(stoi(field));
+
+			if (name == node.getName()){ // if source router...
+				int src = charToNum(name);
+				table[src].setName(name);
+
+				port = node.getPort();
+				table[src].setPort(port);
+
+				addr = node.getAddr();
+				table[src].setAddr();
+
+				table[src].setCost(node.getCost());
+			}
+			else if (name == n){ // if neighbouring router
+				int dest = charToNum(node.getName());
+				table[dest] = node;
+				initEdge(n, node.getName(), node.getCost());
+			}
 		}
+	}
+	else if (name == 'G'){
+		numrouters = 7;
+		initTable();
+		initGraph();
+		initExtraNode();
 	}
 }
 
-void DV::printTimestamp(){
+void DV::initExtraNode(){
+	DVnode node;
+	name = 'G';
+	port = 10006;
+	setAddr();
+
+	int i;
+	for(i = 0; i < numrouters - 1; i++){
+		node.setValidity(true);
+		node.setName(numToChar(i));
+		node.setPort(10000 + i);
+		node.setAddr();
+		node.setCost(rand() % 4);
+
+		table[i] = node;
+		initEdge(name, node.getName(), node.getCost());
+	}
+
+	node.setValidity(false);
+	node.setName(name);
+	node.setPort(port);
+	node.setAddr();
+	node.setCost(0);
+
+	table[i] = node;
+}
+
+string DV::printTimestamp(){
+	std::stringstream ss;
+
 	auto start = std::chrono::system_clock::now();
 	auto end = std::chrono::system_clock::now();
 
 	std::time_t end_time = std::chrono::system_clock::to_time_t(end);
-	std::cout << "Timestamp: " << std::ctime(&end_time) << std::endl;
-}
-
-void DV::printTable(){
-	cout << left << setw(15) << "Destination";
-	cout << left << setw(15) << "Cost";
-	cout << left << setw(25) << "Outgoing UDP Port";
-	cout << "Destination UDP Port\n";
-
-	for (int i = 0; i < NUMROUTERS; i++){
-		cout << left << setw(15) << table[i].getName();
-		cout << left << setw(15) << table[i].getCost();
-		cout << port << "(Node " << name << left << setw(13) << ")";
-		cout << table[i].getPort() << "(Node " << table[i].getName() << ")\n";
-	}
-	cout << "\n";
-}
-
-string DV::sendDVupdate(){
-	std::stringstream ss;
-
-	//ss << "control,";
-
-	for(int j = 0; j < NUMROUTERS; j++){
-		for(int i = 0; i < NUMROUTERS; i++){
-			if (graph[j][i] != INF){
-				ss << numToChar(j) << ",";
-				ss << numToChar(i) << ",";
-				ss << table[i].getPort() << ",";
-				ss << graph[j][i] << ",";
-			}
-		}
-	}
-	ss << "XXX\n";
+	ss << "Timestamp: " << std::ctime(&end_time);
 
 	return ss.str();
 }
 
-void DV::recvDVupdate(string update){
+std::string DV::printTable(){
+	std::stringstream ss;
+
+	ss << left << setw(15) << "Destination";
+	ss << left << setw(15) << "Cost";
+	ss << left << setw(25) << "Outgoing UDP Port";
+	ss << "Destination UDP Port\n";
+
+	for (int i = 0; i < numrouters; i++){
+		ss << left << setw(15) << table[i].getName();
+		ss << left << setw(15) << table[i].getCost();
+		ss << port << "(Node " << name << left << setw(13) << ")";
+		ss << table[i].getPort() << "(Node " << table[i].getName() << ")\n";
+	}
+	ss << "\n";
+
+	return ss.str();
+}
+
+void DV::reset(string filename){
+	fstream topology(filename);
+	cout << "Part 1";
+	char temp = name;
+	resetTable();
+	resetGraph();
+	name = temp;
+	cout << "Part 2";
+	if(name >= 'A' && name <= 'F'){
+		cout << "Part 3";
+		string line;
+		string field;
+		while (topology.peek() != EOF){
+			getline(topology, line);
+			stringstream linestream(line);
+			cout << "Part 4";
+			DVnode node;
+			node.setValidity(true);
+
+			//Source Router
+			getline(linestream, field, ',');
+			char n = field[0];
+
+			//Neighbour Router
+			getline(linestream, field, ',');
+			node.setName(field[0]);
+
+			//Neighbour Port Number
+			getline(linestream, field, ',');
+			node.setPort(stoi(field));
+			node.setAddr();
+
+			//Cost
+			getline(linestream, field, ',');
+			node.setCost(stoi(field));
+
+			if (name == node.getName()){ // if source router...
+				int src = charToNum(name);
+				table[src].setName(name);
+
+				port = node.getPort();
+				table[src].setPort(port);
+
+				addr = node.getAddr();
+				table[src].setAddr();
+
+				table[src].setCost(node.getCost());
+			}
+			else if (name == n){ //if neighbouring router
+				int dest = charToNum(node.getName());
+				table[dest] = node;
+				initEdge(n, node.getName(), node.getCost());
+			}
+		}
+	}
+	else if (name == 'G'){
+		initExtraNode();
+	}
+}
+
+string DV::sendPacket(){
+	std::stringstream packet;
+
+	//if(timeout){
+	//	packet << "TIMEOUT\n";
+	//}
+	
+		for(int j = 0; j < numrouters; j++){
+			for(int i = 0; i < numrouters; i++){
+				if (graph[j][i] != INF){
+					packet << numToChar(j) << ",";
+					packet << numToChar(i) << ",";
+					packet << table[i].getPort() << ",";
+					packet << graph[j][i] << ",";
+				}
+			}
+		}
+		packet << "END\n";
+	
+
+	return packet.str();
+}
+
+int DV::recvPacket(string packet){
 	std::stringstream linestream;
 
 	int i = 0;
-	while(update[i] != ',' && update[i] != '\n'){ // For Example...
-		linestream << update[i++]; // source = 'A'
+	while(packet[i] != ',' && packet[i] != '\n'){ // For Example...
+		linestream << packet[i++]; // source = 'A'
 	};
 	i++;
-
-	if (linestream.str() == "WWW"){
-		for (int j = 0; j < NUMROUTERS; j++){ 
-			received[j] = false;
-    	}
-		//cout << "Wake Up!";
+	if (linestream.str() == "TIMEOUT"){
+		return -1;
+	}
+	else if (linestream.str() == "EXTRANODE"){
+		return -2;
 	}
 	else {
-		char src;
-		while(linestream.str() != "XXX"){
+		while(linestream.str() != "END"){
 			DVnode dest;
 
-			src = linestream.str()[0];
-			/*if(received[charToNum(src)]){
-				break;
-			}*/
+			char src = linestream.str()[0];
 			//cout << "S=" << src << ",";
 
 			linestream.str("");
-			while(update[i] != ','){
-				linestream << update[i++]; // dest = 'B'
+			while(packet[i] != ','){
+				linestream << packet[i++]; // dest = 'B'
 			};
 			dest.setName(linestream.str()[0]);
 			//cout << "D=" << dest.getName() << ",";
 			i++;
 			
 			linestream.str("");
-			while(update[i] != ','){
-				linestream << update[i++]; // port = '10001'
+			while(packet[i] != ','){
+				linestream << packet[i++]; // port = '10001'
 			};
 			dest.setPort(stoi(linestream.str()));
 			//cout << "P=" << dest.getPort() << ",";
 			i++;
 			
 			linestream.str("");
-			while(update[i] != ','){
-				linestream << update[i++]; // cost = '4'
+			while(packet[i] != ','){
+				linestream << packet[i++]; // cost = '4'
 			};
 			dest.setCost(stoi(linestream.str()));
 			//cout << "C=" << dest.getCost() << "\n";
@@ -195,49 +340,52 @@ void DV::recvDVupdate(string update){
 
 			int u = charToNum(src);
 			int v = charToNum(dest.getName());
-			if (graph[v][u] != dest.getCost()){
+			if (graph[u][v] != dest.getCost()){
+				if(table[u].getName() != src){
+					table[u].setName(src);
+				}
 				if(table[v].getName() != dest.getName() ){
 					table[v].setName(dest.getName());
 				}
-				if(table[v].getPort() == -1){
+				cout << dest.getPort();
+				if(table[v].getPort() != dest.getPort()){
 					table[v].setPort(dest.getPort());
 				}
 
-				
-				//printTopology();
-
 				//Print out Timestamp
-				printTimestamp();
+				std::string output = printTimestamp();
+				outputToFile(output);
 
 				//Print Table beforehand
-				printTable();
+				output = printTable();
+				outputToFile(output);
 
 				//Add Edge and Calculate Shortest Distances
 				initEdge(src, dest.getName(), dest.getCost());
 				bellmanFordAlgorithm();
 
 				//Print DV that caused the changed
-				cout << "<" << name << ",";
-				cout << dest.getName() << ",";
-				cout << dest.getPort() << ",";
-				cout << dest.getCost() << ">\n\n";
+				std::stringstream ss;
+				ss << "<" << src << ",";
+				ss << dest.getName() << ",";
+				ss << dest.getPort() << ",";
+				ss << dest.getCost() << ">\n\n";
+				output = ss.str();
+				outputToFile(output);
 
 				//Print Table afterwards
-				printTable();
-
-
+				output = printTable();
+				outputToFile(output);
 			}
 
 			linestream.str("");
-			while(update[i] != ',' && update[i] != '\n'){
-				linestream << update[i++]; // termination string = 'XXX'
+			while(packet[i] != ',' && packet[i] != '\n'){
+				linestream << packet[i++]; // termination string = 'XXX'
 			};
 			i++;
 		}
-		/*if(!received[charToNum(src)]){
-			received[charToNum(src)] = true;
-			printTopology();
-		};*/
+
+		return 0;
 	}
 }
 
@@ -250,24 +398,50 @@ char DV::numToChar(int i){
 }
 
 void DV::initEdge(char source, char destination, int cost){
-	int i = charToNum(source);
-	int j = charToNum(destination);
+	int j = charToNum(source);
+	int i = charToNum(destination);
 
 	graph[j][i] = cost;
 }
  
 void DV::initGraph() { 
-	for(int j = 0; j < NUMROUTERS; j++){
-		for (int i = 0; i < NUMROUTERS; i++){
+	graph = new int*[numrouters];
+	for (int i = 0; i < numrouters; i++) {
+  		graph[i] = new int[numrouters];
+	}
+
+	for(int j = 0; j < numrouters; j++){
+		for (int i = 0; i < numrouters; i++){
 			graph[j][i] = INF;
 		}
 	}
 }
+
+void DV::resetGraph() { 
+
+	//Allocate Memory for new table
+	int** temp = graph;
+	graph = new int*[numrouters];
+	for (int i = 0; i < numrouters; i++) {
+  		graph[i] = new int[numrouters];
+	}
+	for(int j = 0; j < numrouters; j++){
+		for (int i = 0; i < numrouters; i++){
+			graph[j][i] = INF;
+		}
+	}
+
+	//Deallocate Memory for old table
+	for(int i = 0; i < numrouters - 1; i++){
+		delete[] temp[i];
+	}
+	delete[] temp;
+}
   
 void DV::printTopology() { 
-    printf("Source, Destination, Cost\n"); 
-    for (int j = 0; j < NUMROUTERS; j++) {
-		for (int i = 0; i < NUMROUTERS; i++){
+    cout << "Source, Destination, Cost\n";
+    for (int j = 0; j < numrouters; j++) {
+		for (int i = 0; i < numrouters; i++){
 			if(graph[j][i] != INF){
 				cout << numToChar(j) << ",";
 				cout << numToChar(i) << ",";
@@ -278,53 +452,82 @@ void DV::printTopology() {
 	}
 }
 
-void DV::bellmanFordAlgorithm() { 
+void DV::findShortestPath(int parent[], int j, int u, int &v){
+	if (parent[j] == -1){
+		return;
+	}
 
-    int dist[NUMROUTERS]; 
-    for (int i = 0; i < NUMROUTERS; i++) {
+	findShortestPath(parent, parent[j], u, v);
+	shortestPath[u][v++] = j;
+}
+
+void DV::bellmanFordAlgorithm() {
+    int dist[numrouters];
+	int parent[numrouters];
+
+    for (int i = 0; i < numrouters; i++) {
         dist[i] = INF;
+		parent[i] = -1;
     }
+
+	for (int j = 0; j < numrouters; j++){
+		for(int i = 0; i < numrouters; i++){
+			shortestPath[j][i] = -1;
+		}
+	}
 	
 	int src = charToNum(name);
     dist[src] = 0;
   
-    for (int i = 1; i <= NUMROUTERS - 1; i++) { 
-        for (int u = 0; u < NUMROUTERS; u++) { 
-			for (int v = 0; v < NUMROUTERS; v++){
-				if(graph[v][u] == INF){
+    for (int i = 1; i <= numrouters - 1; i++) { 
+        for (int u = 0; u < numrouters; u++) { 
+			for (int v = 0; v < numrouters; v++){
+				if(graph[u][v] == INF){
 					continue;
 				}
 
-				if (dist[u] != INF && dist[u] + graph[v][u] < dist[v]) {
-					dist[v] = dist[u] + graph[v][u]; 
+				if (dist[u] != INF && dist[u] + graph[u][v] < dist[v]) {
+					dist[v] = dist[u] + graph[u][v];
+					parent[v] = u;
 				}
 			}
         }
     } 
-   
-	/*for (int u = 0; u < NUMROUTERS; u++) { 
-		for (int v = 0; v < NUMROUTERS; v++){
-			if(graph[v][u] == INF){
-				continue;
-			}
 
-			if (dist[u] != INF && dist[u] + graph[v][u] < dist[v]) {
-				cout << "Graph contains negative cost cycles";
+	updateTable(dist);
+
+	int v;
+	for (int u = 0; u < numrouters; u++)
+	{
+		v = 0;
+		findShortestPath(parent, u, u, v);
+	}
+
+	// Print Shortest Paths for 
+	/*
+	for(int j = 0; j < numrouters; j++){
+		cout << numToChar(j) << " ";
+	}
+	cout << endl;
+
+	for(int j = 0; j < numrouters; j++){
+		for (int i = 0; i < numrouters; i++){
+			if (shortestPath[j][i] == -1){
+				cout << " ";
 			}
+			cout << shortestPath[j][i] << " ";
 		}
+		cout << endl;
 	}*/
-
-	updateTable(dist); 
 }
 
 void DV::updateTable(int dist[]){
-	for (int i = 0; i < NUMROUTERS; i++){
+	for (int i = 0; i < numrouters; i++){
 		table[i].setCost(dist[i]);
 	}
 }
 
 vector<uint8_t> DV::encode(string message) {
-
 	vector<uint8_t> wire(message.begin(), message.end());
 
 	return wire;
@@ -336,3 +539,30 @@ string DV::consume(vector<uint8_t> wire) {
 	return message;
 }
 
+
+void DV::outputToFile(std::string input){
+	std::stringstream ss;
+	ss << "routing-output" << name << ".txt";
+	string filename = ss.str();
+
+	std::ofstream file(filename, ios::app);
+
+    file << input << endl;
+
+    file.close(); 
+}
+
+void DV::clearFile(){
+	//std::stringstream ss;
+	//ss << "routing-output" << name << ".txt";
+	//std::string filename = ss.str();
+
+	//std::ifstream File;
+	//File.open(filename.c_str(), std::ifstream::out | std::ifstream::trunc);
+	//if(!File.is_open() || File.fail()){
+	//	File.open();
+	//	cout << "Error erasing content!";
+	//}
+
+	//File.close();
+}
